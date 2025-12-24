@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IAM-PAM Bulk Upload</title>
+  <style>
+    body{font-family:Arial;background:#f4f4f4;padding:40px;text-align:center}
+    .card{display:inline-block;background:#fff;padding:25px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+    #fileInput{display:none}
+    .btn{background:#007bff;color:#fff;padding:10px 20px;border:none;border-radius:4px;cursor:pointer}
+    .btn:hover{background:#0056b3}
+    #msg{margin-top:15px;font-size:14px}
+    .ok{color:green}.err{color:#d9534f}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>IAM & PAM Enterprise Suite</h1>
+    <h2>Bulk User Upload</h2>
+    <p>CSV or XLSX &nbsp;·&nbsp; Columns: email, firstname, lastname, role, department, manageremail, startdate, location, workertype</p>
+    <button class="btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
+    <input id="fileInput" type="file" accept=".csv,.xlsx"/>
+    <div id="msg"></div>
+  </div>
+
+<script>
+const fileIn=document.getElementById('fileInput');
+const msg=document.getElementById('msg');
+const expected=['email','firstname','lastname','role','department','manageremail','startdate','location','workertype'];
+
+fileIn.addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const txt=ev.target.result;
+    const bad=/javascript:|onerror=|onload=|eval\(/i; if(bad.test(txt)){show('⚠️ Malicious pattern detected','err');return;}
+    try{
+      const wb=await readXLSX(txt,f.name);
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(data.length===0){show('Empty sheet','err');return;}
+      const keys=Object.keys(data[0]).map(k=>k.toLowerCase());
+      if(JSON.stringify(keys)!==JSON.stringify(expected)){show(`Column mismatch<br>Expected: ${expected.join(', ')}`,'err');return;}
+      upload(data);
+    }catch(e){show('Parse error: '+e.message,'err');}
+  };
+  if(f.name.endsWith('.csv'))reader.readAsText(f); else reader.readAsArrayBuffer(f);
+});
+
+function show(text,cls){msg.innerHTML=`<span class="${cls}">${text}</span>`;}
+async function readXLSX(buf,fn){return fn.endsWith('csv')?XLSX.read(buf,{type:'string'}):XLSX.read(buf,{type:'array'});}
+async function upload(json){
+  const body=new Blob([JSON.stringify(json)],{type:'application/json'});
+  const res=await fetch('/upload', {method:'POST', body});
+  const j=await res.json();
+  res.ok?show(`✅ Task spawned: ${j.task_id}<br><a href="/result/${j.task_id}">Check status</a>`,'ok'):show(j.detail,'err');
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>

@@ -1,3 +1,2 @@
 # ENTERPRISE IAM & PAM AUTOMATION SUITE
-Github repository consisting of terraform,python codes to demonstrate the working of just in time IAM based feature for hybrid systems
-hi
+Github repository consisting of python codes that implements automation of implementation of IAM,PAM and JIT features for the users with okta,azure,cyberark
